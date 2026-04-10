@@ -1,0 +1,36 @@
+# Core API
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+python-dotenv==1.0.1
+
+# LangGraph / LangChain core
+langgraph==0.2.60
+langchain==0.3.13
+langchain-core>=0.3.29
+
+# LLM Providers
+google-genai>=0.3.0                  # Official new GenAI SDK
+langchain-google-genai>=2.0.9        # Upgraded to use google-genai
+langchain-openai==0.2.14             # GPT-4o-mini
+langchain-groq==0.2.3                # Groq (llama, mixtral)
+
+# OpenRouter (uses openai-compatible client)
+openai==1.58.1                       # Reused for OpenRouter via custom base_url
+
+# Redis – conversation memory
+redis[asyncio]==5.2.1
+
+# HTTP client (ERP adapter)
+httpx==0.28.1
+
+# Validation & settings
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# Vector DB for RAG (Phase 2)
+chromadb==0.5.23
+
+# Utilities
+python-jose[cryptography]==3.3.0     # JWT decoding
+tenacity==9.0.0                      # Retry logic for ERP calls
+structlog==24.4.0                    # Structured JSON logging
