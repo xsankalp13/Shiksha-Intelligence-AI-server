@@ -47,9 +47,20 @@ class Settings(BaseSettings):
     ACTIVE_MODEL: str = "gemini-flash"
     INTENT_CLASSIFIER_MODEL: str = "gemini-flash"  # Always lightweight
 
-    # ── RAG (Phase 2) ─────────────────────────────────────────────────────
+    # ── RAG — Pinecone (Phase 2) ──────────────────────────────────────────
+    PINECONE_API_KEY: str = ""
+    PINECONE_INDEX_NAME: str = "shiksha-knowledge"
+    PINECONE_ENVIRONMENT: str = "us-east-1-aws"      # Free plan is locked to AWS us-east-1
+    RAG_TOP_K: int = 5                                # Number of chunks to retrieve per query
+
+    # ── RAG — ChromaDB (local fallback / dev) ────────────────────────────
     CHROMA_PERSIST_PATH: str = "./chroma_db"
     CHROMA_COLLECTION_NAME: str = "school_knowledge"
+    USE_PINECONE: bool = False                        # Set True to use Pinecone instead of Chroma
+
+    # ── Long-term Student Memory (Optional — Supabase PostgreSQL) ─────────
+    DATABASE_URL: str = ""                            # e.g. postgresql+asyncpg://user:pass@host/db
+    ENABLE_LONG_TERM_MEMORY: bool = False             # Feature flag — off by default
 
     @field_validator("LOG_LEVEL")
     @classmethod

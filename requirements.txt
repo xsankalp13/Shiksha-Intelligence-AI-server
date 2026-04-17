@@ -2,6 +2,7 @@
 fastapi==0.115.6
 uvicorn[standard]==0.32.1
 python-dotenv==1.0.1
+python-multipart==0.0.26
 
 # LangGraph / LangChain core
 langgraph==0.2.60
@@ -18,7 +19,7 @@ langchain-groq==0.2.3                # Groq (llama, mixtral)
 openai==1.58.1                       # Reused for OpenRouter via custom base_url
 
 # Redis – conversation memory
-redis[asyncio]==5.2.1
+redis==5.2.1
 
 # HTTP client (ERP adapter)
 httpx==0.28.1
@@ -29,6 +30,13 @@ pydantic-settings==2.7.0
 
 # Vector DB for RAG (Phase 2)
 chromadb==0.5.23
+pinecone-client>=3.0.0               # Pinecone vector store (free tier supported)
+langchain-pinecone>=0.1.0            # LangChain ↔ Pinecone integration
+langchain-community>=0.3.0           # Document loaders (PDF, text)
+pypdf>=4.0.0                         # PDF chunking for RAG ingestion
+
+# Optional: Long-term student memory (Supabase PostgreSQL)
+asyncpg>=0.29.0
 
 # Utilities
 python-jose[cryptography]==3.3.0     # JWT decoding

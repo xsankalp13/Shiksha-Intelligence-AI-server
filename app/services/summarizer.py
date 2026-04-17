@@ -119,3 +119,61 @@ def summarize_invoices(invoices: list[dict[str, Any]]) -> str:
         lines.append(f"  ... and {len(invoices) - 5} more invoices.")
 
     return "\n".join(lines)
+
+
+def summarize_class_performance(data: dict[str, Any]) -> str:
+    """Converts class-level marks data → compact teacher summary."""
+    if not data:
+        return "No class performance data available."
+
+    lines = ["## Class Performance Summary"]
+
+    class_avg = data.get("classAverage", "?")
+    pass_rate = data.get("passRate", "?")
+    lines.append(f"Class Average: {class_avg}% | Pass Rate: {pass_rate}%")
+
+    # Subject-wise averages
+    subject_avgs = data.get("subjectAverages", [])
+    if subject_avgs:
+        lines.append("\nSubject Averages:")
+        for s in subject_avgs[:8]:
+            lines.append(f"  • {s.get('subject', '?')}: {s.get('average', '?')}%")
+
+    # Top performers
+    top = data.get("topStudents", [])
+    if top:
+        lines.append(f"\nTop Students: {', '.join(s.get('name', '?') for s in top[:3])}")
+
+    # Bottom performers (needs attention)
+    bottom = data.get("needsAttention", [])
+    if bottom:
+        lines.append(f"Needs Attention: {', '.join(s.get('name', '?') for s in bottom[:3])}")
+
+    return "\n".join(lines)
+
+
+def summarize_class_attendance(summary: dict[str, Any], at_risk: list[dict[str, Any]]) -> str:
+    """Converts class attendance + at-risk list → compact teacher summary."""
+    lines = ["## Class Attendance Summary"]
+
+    total = summary.get("totalStudents", "?")
+    present_pct = summary.get("presentPercentage", "?")
+    absent_today = summary.get("absentToday", "?")
+    lines.append(
+        f"Total Students: {total} | Present Today: {present_pct}% | Absent: {absent_today}"
+    )
+
+    threshold = summary.get("threshold", 75)
+    at_risk_count = len(at_risk) if at_risk else summary.get("atRiskCount", 0)
+    lines.append(f"Students Below {threshold}% Attendance: {at_risk_count}")
+
+    if at_risk:
+        lines.append("\nAt-Risk Students (lowest attendance first):")
+        for student in at_risk[:5]:
+            name = student.get("studentName", "?")
+            pct = student.get("attendancePercentage", "?")
+            lines.append(f"  • {name}: {pct}%")
+        if len(at_risk) > 5:
+            lines.append(f"  ... and {len(at_risk) - 5} more students at risk.")
+
+    return "\n".join(lines)

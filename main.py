@@ -9,8 +9,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.logging import configure_logging
-from app.api.v1 import chat, ai_config
+from app.api.v1 import chat, ai_config, rag_admin
 from app.services.session_service import SessionService
+from app.services.rag_service import RagService
+from app.services.profile_service import ProfileService
 
 
 @asynccontextmanager
@@ -22,17 +24,25 @@ async def lifespan(app: FastAPI):
     # Warm up Redis connection pool
     await SessionService.ping()
 
+    # Initialise RAG vector store backend (Pinecone or ChromaDB)
+    await RagService.init()
+
     yield
 
     # ── Shutdown ─────────────────────────────────────────────────────────
     await SessionService.close()
+    await ProfileService.close()
 
 
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Shiksha AI Service",
-        description="Multi-model AI assistant gateway for Shiksha Intelligence ERP",
-        version="1.0.0",
+        description=(
+            "Multi-model AI assistant gateway for Shiksha Intelligence ERP. "
+            "Phase 2: RAG knowledge base, Entity extraction, Teacher mode, "
+            "Leave filing, and Long-term student memory."
+        ),
+        version="2.0.0",
         docs_url="/docs",
         lifespan=lifespan,
     )
@@ -49,10 +59,17 @@ def create_app() -> FastAPI:
     # ── Routers ──────────────────────────────────────────────────────────
     app.include_router(chat.router, prefix="/v1", tags=["Chat"])
     app.include_router(ai_config.router, prefix="/v1", tags=["AI Config"])
+    app.include_router(rag_admin.router, prefix="/v1", tags=["RAG Admin"])
 
     @app.get("/health", tags=["Health"])
     async def health():
-        return {"status": "ok", "service": "shiksha-ai-service"}
+        rag_ready = await RagService.ping()
+        return {
+            "status": "ok",
+            "service": "shiksha-ai-service",
+            "version": "2.0.0",
+            "rag_ready": rag_ready,
+        }
 
     return app
 

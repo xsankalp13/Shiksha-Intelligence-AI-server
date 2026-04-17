@@ -5,9 +5,10 @@ Flow:
 1. Decode JWT → extract user_id, role
 2. Load/create Redis session → conversation history
 3. Load active AI config from Redis (falls back to .env defaults)
-4. Invoke the LangGraph
-5. Persist the new turn to Redis
-6. Return structured response
+4. Load long-term student profile (optional — from Supabase)
+5. Invoke the LangGraph
+6. Persist the new turn to Redis
+7. Return structured response
 """
 from __future__ import annotations
 
@@ -22,6 +23,7 @@ from app.core.logging import logger
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.ai_config import AIConfig
 from app.services.session_service import SessionService
+from app.services.profile_service import ProfileService
 
 router = APIRouter()
 
@@ -72,16 +74,14 @@ async def chat(
         except HTTPException:
             if not settings.JWT_ALLOW_MOCK:
                 raise
-            # In mock mode, we gracefully ignore the error
             user_id = 999
             role = "STUDENT"
             logger.warning("Invalid JWT, using mock user 999 because JWT_ALLOW_MOCK=True")
     else:
-        # No token provided in Swagger/Request
         if not settings.JWT_ALLOW_MOCK:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated, and mock mode is off."
+                detail="Not authenticated, and mock mode is off.",
             )
         user_id = 999
         role = "STUDENT"
@@ -104,6 +104,9 @@ async def chat(
             intent_classifier_model=settings.INTENT_CLASSIFIER_MODEL,
         )
 
+    # ── Long-term Student Profile (Phase 2 — optional) ────────────────────
+    student_profile = await ProfileService.get_profile(user_id)
+
     # ── Build initial state ───────────────────────────────────────────────
     initial_state: AgentState = {
         "user_id": user_id,
@@ -114,12 +117,15 @@ async def chat(
         "conversation_history": history_data["turns"],
         "memory_summary": history_data.get("summary", ""),
         "intent": "",
+        "extracted_entities": {},
         "fetched_data": {},
         "data_summary": "",
+        "rag_context": "",
         "active_model": config.active_model,
         "intent_classifier_model": config.intent_classifier_model,
         "temperature": config.temperature,
         "max_output_tokens": config.max_output_tokens,
+        "student_profile": student_profile,
         "response": "",
         "sources": [],
         "error": None,
