@@ -13,32 +13,43 @@ import json
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
-from openai import AsyncOpenAI
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.core.config import settings
 from app.core.logging import logger
+from app.core.model_registry import build_llm, MODEL_REGISTRY
 from app.schemas.ai_config import AIConfig
 from app.services.session_service import SessionService
 
 router = APIRouter()
 
-# ---------------------------------------------------------------------------
-# Lazy-initialised async OpenAI client
-# ---------------------------------------------------------------------------
-
-_openai_client: AsyncOpenAI | None = None
+_TIMETABLE_SYSTEM_PROMPT = "You are an expert school timetable scheduler. Always respond with valid JSON only."
+_TIMETABLE_FALLBACK_MODEL = "gpt-4o-mini"
 
 
-def _get_openai_client() -> AsyncOpenAI:
-    global _openai_client
-    if _openai_client is None:
-        if not settings.OPENAI_API_KEY:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="OPENAI_API_KEY is not configured on the server.",
-            )
-        _openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-    return _openai_client
+async def _call_llm(model_id: str, prompt: str) -> str:
+    """Call the configured LLM provider and return the raw text response.
+
+    Uses build_llm() from model_registry so any provider (Gemini, Groq,
+    OpenRouter, OpenAI) works — exactly the same as the chat endpoint.
+    Falls back to gpt-4o-mini if the model_id is not in the registry.
+    """
+    if model_id not in MODEL_REGISTRY:
+        logger.warning(
+            "Timetable: model not in registry, falling back",
+            requested=model_id,
+            fallback=_TIMETABLE_FALLBACK_MODEL,
+        )
+        model_id = _TIMETABLE_FALLBACK_MODEL
+
+    llm = build_llm(model_id, temperature=0.3)
+    messages = [
+        SystemMessage(content=_TIMETABLE_SYSTEM_PROMPT),
+        HumanMessage(content=prompt),
+    ]
+    response = await llm.ainvoke(messages)
+    return str(response.content)
+
 
 
 # ---------------------------------------------------------------------------
@@ -249,27 +260,15 @@ async def generate_timetable(body: GenerateTimetableRequest):
     )
 
     try:
-        client = _get_openai_client()
-
         # ── Resolve model from ai-config (Redis), fallback to env default ──
         raw_config = await SessionService.get_ai_config()
-        active_model = (
+        model_id = (
             AIConfig(**raw_config).active_model if raw_config else settings.ACTIVE_MODEL
         )
+        logger.info("Timetable generate", model_id=model_id)
 
-        response = await client.chat.completions.create(
-            model=active_model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are an expert school timetable scheduler. Always respond with valid JSON only.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.3,
-            response_format={"type": "json_object"},
-        )
-        result = json.loads(response.choices[0].message.content)
+        raw_text = await _call_llm(model_id, prompt)
+        result = json.loads(raw_text)
     except json.JSONDecodeError as exc:
         logger.error("Timetable LLM response not valid JSON", error=str(exc))
         raise HTTPException(
@@ -331,27 +330,14 @@ async def generate_timetable_bulk(body: BulkGenerateTimetableRequest):
                 teacher_bookings,
                 class_label,
             )
-            client = _get_openai_client()
-
             # ── Resolve model from ai-config (Redis), fallback to env default ──
             raw_config = await SessionService.get_ai_config()
-            active_model = (
+            model_id = (
                 AIConfig(**raw_config).active_model if raw_config else settings.ACTIVE_MODEL
             )
 
-            response = await client.chat.completions.create(
-                model=active_model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are an expert school timetable scheduler. Always respond with valid JSON only.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.3,
-                response_format={"type": "json_object"},
-            )
-            result = json.loads(response.choices[0].message.content)
+            raw_text = await _call_llm(model_id, prompt)
+            result = json.loads(raw_text)
 
             if result.get("success", False):
                 timetable = result.get("timetable", {})
