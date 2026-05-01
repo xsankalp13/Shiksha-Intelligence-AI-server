@@ -65,7 +65,17 @@ class Settings(BaseSettings):
     # ── CORS ─────────────────────────────────────────────────────────
     # Comma-separated extra origins added in production (e.g. your hosted frontend URL)
     # Example: EXTRA_CORS_ORIGINS=https://app.shiksha.school,https://admin.shiksha.school
-    EXTRA_CORS_ORIGINS: list[str] = []
+    # Stored as a plain str so pydantic-settings never tries json.loads() on it.
+    EXTRA_CORS_ORIGINS: str = ""
+
+    @property
+    def extra_cors_origins_list(self) -> list[str]:
+        """Parse EXTRA_CORS_ORIGINS from a comma-separated string.
+        Safely returns [] for empty/blank values.
+        """
+        if not self.EXTRA_CORS_ORIGINS or not self.EXTRA_CORS_ORIGINS.strip():
+            return []
+        return [o.strip() for o in self.EXTRA_CORS_ORIGINS.split(",") if o.strip()]
 
     @field_validator("LOG_LEVEL")
     @classmethod

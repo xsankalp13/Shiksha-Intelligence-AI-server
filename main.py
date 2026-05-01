@@ -53,7 +53,7 @@ def create_app() -> FastAPI:
             "http://localhost:3000",
             "http://localhost:3001",
             "http://localhost:5173",
-            *settings.EXTRA_CORS_ORIGINS,
+            *settings.extra_cors_origins_list,
         }
     )
     app.add_middleware(
