@@ -62,6 +62,11 @@ class Settings(BaseSettings):
     DATABASE_URL: str = ""                            # e.g. postgresql+asyncpg://user:pass@host/db
     ENABLE_LONG_TERM_MEMORY: bool = False             # Feature flag — off by default
 
+    # ── CORS ─────────────────────────────────────────────────────────
+    # Comma-separated extra origins added in production (e.g. your hosted frontend URL)
+    # Example: EXTRA_CORS_ORIGINS=https://app.shiksha.school,https://admin.shiksha.school
+    EXTRA_CORS_ORIGINS: list[str] = []
+
     @field_validator("LOG_LEVEL")
     @classmethod
     def validate_log_level(cls, v: str) -> str:

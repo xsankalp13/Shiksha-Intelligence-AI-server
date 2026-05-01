@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.logging import configure_logging
-from app.api.v1 import chat, ai_config, rag_admin
+from app.api.v1 import chat, ai_config, rag_admin, timetable
 from app.services.session_service import SessionService
 from app.services.rag_service import RagService
 from app.services.profile_service import ProfileService
@@ -47,10 +47,18 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS — allow the React frontend dev server
+    # CORS — allow the React frontend dev server + any extra origins from settings
+    _cors_origins = list(
+        {
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://localhost:5173",
+            *settings.EXTRA_CORS_ORIGINS,
+        }
+    )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:5173"],
+        allow_origins=_cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -60,6 +68,7 @@ def create_app() -> FastAPI:
     app.include_router(chat.router, prefix="/v1", tags=["Chat"])
     app.include_router(ai_config.router, prefix="/v1", tags=["AI Config"])
     app.include_router(rag_admin.router, prefix="/v1", tags=["RAG Admin"])
+    app.include_router(timetable.router, prefix="/v1/timetable", tags=["Timetable"])
 
     @app.get("/health", tags=["Health"])
     async def health():
