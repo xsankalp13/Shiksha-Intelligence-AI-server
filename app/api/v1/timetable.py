@@ -28,12 +28,18 @@ _TIMETABLE_FALLBACK_MODEL = "gpt-4o-mini"
 
 
 async def _call_llm(model_id: str, prompt: str) -> str:
-    """Call the configured LLM provider and return the raw text response.
+    """Call the configured LLM provider and return clean JSON text.
 
     Uses build_llm() from model_registry so any provider (Gemini, Groq,
     OpenRouter, OpenAI) works — exactly the same as the chat endpoint.
     Falls back to gpt-4o-mini if the model_id is not in the registry.
+
+    Many non-OpenAI models (Groq, Gemini, OpenRouter) wrap their JSON
+    in markdown code fences (```json ... ```) even when instructed not to.
+    This function strips those fences before returning.
     """
+    import re
+
     if model_id not in MODEL_REGISTRY:
         logger.warning(
             "Timetable: model not in registry, falling back",
@@ -48,7 +54,20 @@ async def _call_llm(model_id: str, prompt: str) -> str:
         HumanMessage(content=prompt),
     ]
     response = await llm.ainvoke(messages)
-    return str(response.content)
+    raw = str(response.content).strip()
+
+    # Strip markdown code fences: ```json ... ``` or ``` ... ```
+    fenced = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.IGNORECASE)
+    fenced = re.sub(r"\s*```$", "", fenced).strip()
+
+    if not fenced:
+        logger.error(
+            "Timetable LLM returned empty response",
+            model_id=model_id,
+            raw_preview=raw[:200],
+        )
+
+    return fenced
 
 
 
@@ -270,7 +289,11 @@ async def generate_timetable(body: GenerateTimetableRequest):
         raw_text = await _call_llm(model_id, prompt)
         result = json.loads(raw_text)
     except json.JSONDecodeError as exc:
-        logger.error("Timetable LLM response not valid JSON", error=str(exc))
+        logger.error(
+            "Timetable LLM response not valid JSON",
+            error=str(exc),
+            raw_preview=raw_text[:300] if "raw_text" in dir() else "unavailable",
+        )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"success": False, "error": f"LLM returned invalid JSON: {exc}", "conflicting_constraints": []},
