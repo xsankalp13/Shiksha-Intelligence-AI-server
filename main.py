@@ -70,6 +70,11 @@ def create_app() -> FastAPI:
     app.include_router(rag_admin.router, prefix="/v1", tags=["RAG Admin"])
     app.include_router(timetable.router, prefix="/v1/timetable", tags=["Timetable"])
 
+    @app.get("/ping", tags=["Health"])
+    async def ping():
+        """Lightweight liveness check — no external dependencies."""
+        return {"status": "pong", "service": "shiksha-ai-service"}
+
     @app.get("/health", tags=["Health"])
     async def health():
         rag_ready = await RagService.ping()
