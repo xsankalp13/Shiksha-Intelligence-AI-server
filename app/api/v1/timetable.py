@@ -17,6 +17,8 @@ from openai import AsyncOpenAI
 
 from app.core.config import settings
 from app.core.logging import logger
+from app.schemas.ai_config import AIConfig
+from app.services.session_service import SessionService
 
 router = APIRouter()
 
@@ -248,8 +250,15 @@ async def generate_timetable(body: GenerateTimetableRequest):
 
     try:
         client = _get_openai_client()
+
+        # ── Resolve model from ai-config (Redis), fallback to env default ──
+        raw_config = await SessionService.get_ai_config()
+        active_model = (
+            AIConfig(**raw_config).active_model if raw_config else settings.ACTIVE_MODEL
+        )
+
         response = await client.chat.completions.create(
-            model="gpt-4o",
+            model=active_model,
             messages=[
                 {
                     "role": "system",
@@ -323,8 +332,15 @@ async def generate_timetable_bulk(body: BulkGenerateTimetableRequest):
                 class_label,
             )
             client = _get_openai_client()
+
+            # ── Resolve model from ai-config (Redis), fallback to env default ──
+            raw_config = await SessionService.get_ai_config()
+            active_model = (
+                AIConfig(**raw_config).active_model if raw_config else settings.ACTIVE_MODEL
+            )
+
             response = await client.chat.completions.create(
-                model="gpt-4o",
+                model=active_model,
                 messages=[
                     {
                         "role": "system",
